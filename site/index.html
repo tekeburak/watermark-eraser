@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>watermark-eraser — Erase AI provenance marks from your own content</title>
+  <meta name="description" content="Deterministic, privacy-first, stdlib-only Python toolkit that strips invisible Unicode watermarks, C2PA/EXIF/XMP metadata and statistical text marks from content you own. 16 formats, no dependencies, runs locally.">
+  <meta name="color-scheme" content="light">
+  <meta property="og:title" content="watermark-eraser">
+  <meta property="og:description" content="Erase AI provenance marks from your own content — deterministically, locally, honestly.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://tekeburak.github.io/watermark-eraser/">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='2' fill='%231c1916'/%3E%3Ctext x='16' y='22' font-size='17' text-anchor='middle' fill='%23f0eee9' font-family='Georgia,serif' font-style='italic'%3Ew%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="nav">
+    <a class="brand" href="#">
+      <span class="brand-mark" aria-hidden="true">w</span> watermark-eraser
+    </a>
+    <nav aria-label="Primary">
+      <a href="#demo">Demo</a>
+      <a href="#layers">How it works</a>
+      <a href="#formats">Formats</a>
+      <a href="#security">Security</a>
+      <a href="https://github.com/tekeburak/watermark-eraser" target="_blank" rel="noopener">GitHub&nbsp;↗</a>
+    </nav>
+  </header>
+
+  <main id="main">
+
+    <!-- ============ hero ============ -->
+    <section class="hero">
+      <p class="label">Privacy-first provenance toolkit</p>
+      <h1>Erase AI provenance marks from content <em>you own</em>.</h1>
+      <p class="lede">
+        AI tools leave fingerprints — hidden Unicode in text, C2PA / EXIF / XMP metadata in
+        images and documents, statistical marks woven into the wording itself.
+        watermark-eraser finds them and removes them. Deterministically, locally, on your machine.
+      </p>
+      <p class="cta-row">
+        <a class="btn" href="https://github.com/tekeburak/watermark-eraser" target="_blank" rel="noopener">Get started on GitHub</a>
+        <a class="link" href="#quickstart">See the quickstart&nbsp;→</a>
+      </p>
+      <dl class="spec-strip">
+        <div><dt>16</dt><dd>file formats</dd></div>
+        <div><dt>0</dt><dd>dependencies — Python 3.10+ stdlib</dd></div>
+        <div><dt>234</dt><dd>tests, hermetic, two-OS CI</dd></div>
+        <div><dt>MIT</dt><dd>licensed</dd></div>
+      </dl>
+    </section>
+
+    <!-- ============ demo ============ -->
+    <section id="demo">
+      <p class="label">01 — Interactive demo</p>
+      <h2>Invisible marks, made visible. Then gone.</h2>
+      <p class="section-sub">The paragraph below carries <strong>six hidden Unicode codepoints</strong> — the kind
+         AI tools watermark text with. Reveal them, then erase them. Everything runs in your browser.</p>
+      <div class="demo" id="demo-card">
+        <div class="demo-bar">
+          <span class="demo-file">draft.md</span>
+          <div class="demo-actions">
+            <button class="btn small quiet" id="demo-reveal" type="button">Reveal marks</button>
+            <button class="btn small" id="demo-erase" type="button">Erase marks</button>
+            <button class="btn small quiet" id="demo-reset" type="button" hidden>Reset</button>
+          </div>
+        </div>
+        <p class="demo-text" id="demo-text">This contract draft looks great<mark class="mark">&#x200B;</mark>—<mark class="mark">&#x2060;</mark>let's finalize the terms<mark class="mark">&#x200B;</mark>before Friday. The pricing<mark class="mark">&#x00AD;</mark>table and timeline<mark class="mark">&#x200B;</mark>both look<mark class="mark">&#x2060;</mark>solid to me.</p>
+        <p class="demo-status" id="demo-status" role="status"></p>
+      </div>
+    </section>
+
+    <!-- ============ layers ============ -->
+    <section id="layers">
+      <p class="label">02 — How it works</p>
+      <h2>Three layers of marking. Three layers of removal.</h2>
+      <div class="cols">
+        <div class="col">
+          <p class="tag">Layer A</p>
+          <h3>Invisible Unicode</h3>
+          <p>Zero-width characters, bidi overrides, tag characters, exotic spaces, private-use
+             stego — detected and stripped deterministically, every removal counted.
+             Load-bearing invisibles, like emoji glue and script joiners, are preserved.</p>
+          <p class="verdict ok">Verifiable removal</p>
+        </div>
+        <div class="col">
+          <p class="tag">Layer B</p>
+          <h3>Statistical text marks</h3>
+          <p>Token-sampling watermarks — SynthID-Text and Kirchenbauer-class — live in the
+             wording itself. A rewrite hook attacks them: paraphrase, back-translation,
+             structural rewrite, with your own local model. Loopback-only by default.</p>
+          <p class="verdict maybe">Best-effort, honestly</p>
+        </div>
+        <div class="col">
+          <p class="tag">Layer C</p>
+          <h3>File metadata</h3>
+          <p>C2PA manifests, EXIF, XMP, document properties, customXml, generator tags —
+             stripped from sixteen formats while pixels and prose stay untouched.
+             Optional exiftool, c2patool and CtrlRegen backends.</p>
+          <p class="verdict ok">Verifiable removal</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ workflow ============ -->
+    <section id="workflow">
+      <p class="label">03 — Workflow</p>
+      <h2>One command away from clean files.</h2>
+      <div class="cols">
+        <div class="col">
+          <p class="num">01</p>
+          <h3>Inspect</h3>
+          <p><code>inspect_file.py</code> routes by format and reports every mark it finds, with confidence levels. JSON on request.</p>
+        </div>
+        <div class="col">
+          <p class="num">02</p>
+          <h3>Clean</h3>
+          <p><code>clean_file.py</code> strips what was found: metadata chunks, invisible codepoints, AI frontmatter. Atomic writes, backup first.</p>
+        </div>
+        <div class="col">
+          <p class="num">03</p>
+          <h3>Verify</h3>
+          <p>The cleaner re-inspects its own output and reports residuals. Exit codes slot into scripts and CI.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ quickstart ============ -->
+    <section id="quickstart">
+      <p class="label">04 — Quickstart</p>
+      <h2>Clone and run. Nothing to install.</h2>
+      <div class="terminal">
+        <div class="term-bar"><span></span><span></span><span></span></div>
+        <pre><code>git clone https://github.com/tekeburak/watermark-eraser.git
+cd watermark-eraser
+S=skills/remove-ai-marks/scripts
+
+<span class="c"># inspect anything — format is detected automatically</span>
+python3 $S/inspect_file.py draft.md
+
+<span class="c"># clean it (metadata + invisible Unicode, lossless)</span>
+python3 $S/clean_file.py draft.md -o draft.cleaned.md
+python3 $S/clean_file.py photo.png -o photo.cleaned.png</code></pre>
+      </div>
+      <p class="section-sub">Also ships as an agent skill — <code>/remove-ai-marks</code> — that carries the whole
+         inspect, clean, verify and rewrite workflow for you.</p>
+    </section>
+
+    <!-- ============ formats ============ -->
+    <section id="formats">
+      <p class="label">05 — Coverage</p>
+      <h2>Sixteen formats, one router.</h2>
+      <p class="chips">
+        <span>PNG</span><span>JPEG</span><span>WebP</span><span>TIFF</span><span>GIF</span><span>SVG</span>
+        <span>PDF</span><span>DOCX</span><span>PPTX</span><span>XLSX</span><span>ODT</span><span>ODP</span>
+        <span>ODS</span><span>HTML</span><span>Markdown</span><span>TXT</span>
+      </p>
+      <p class="section-sub">Detection runs extension-first, then magic bytes — including OOXML and
+         ODF archives by their zip contents.</p>
+    </section>
+
+    <!-- ============ security ============ -->
+    <section id="security">
+      <p class="label">06 — Security</p>
+      <h2>Built like a security tool.</h2>
+      <p class="section-sub">It parses untrusted files, so every surface is hardened.</p>
+      <dl class="spec">
+        <div><dt>Atomic, symlink-safe writes</dt><dd>Pre-placed symlinks cannot redirect a clean onto your files.</dd></div>
+        <div><dt>Binary-input guard</dt><dd>Text tools refuse DOCX, PDF and images instead of mangling them.</dd></div>
+        <div><dt>SSRF-safe networking</dt><dd>Loopback-only default, resolved-IP validation, connection pinning, no redirects, size-capped responses.</dd></div>
+        <div><dt>Resource caps</dt><dd>Input and stdin caps, zip budgets, rlimits on child processes — all env-tunable.</dd></div>
+        <div><dt>Supply chain</dt><dd>SHA-pinned CI actions, pip-audit, CodeQL, Dependabot.</dd></div>
+      </dl>
+    </section>
+
+    <!-- ============ ethics ============ -->
+    <section class="ethics">
+      <p class="label">07 — Ethics</p>
+      <h2>Use it on content you own.</h2>
+      <p class="lede">This project exists for privacy, hygiene and research on your own work — not for
+         academic fraud, copyright evasion, or passing AI output off as human-written. Layer B is
+         documented with its real quality cost, and no tool can certify that a vendor detector will fail.
+         <a href="https://github.com/tekeburak/watermark-eraser/blob/main/skills/remove-ai-marks/references/ethics.md" target="_blank" rel="noopener">Read the ethics notes&nbsp;↗</a></p>
+    </section>
+
+    <!-- ============ final ============ -->
+    <section class="final">
+      <h2>Your files, clean.</h2>
+      <p class="cta-row">
+        <a class="btn" href="https://github.com/tekeburak/watermark-eraser" target="_blank" rel="noopener">Star on GitHub</a>
+        <a class="link" href="https://github.com/tekeburak/watermark-eraser/releases" target="_blank" rel="noopener">Releases&nbsp;→</a>
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      <a href="https://github.com/tekeburak/watermark-eraser">watermark-eraser</a>
+      · MIT License · built in the open
+      · <a href="https://tekeburak.github.io/watermark-eraser/">tekeburak.github.io/watermark-eraser</a>
+    </p>
+  </footer>
+
+  <script>
+    // Interactive Layer A demo. The marked spans carry real invisible
+    // codepoints (U+200B, U+2060, U+00AD); erasing simply removes them.
+    (function () {
+      var card = document.getElementById("demo-card");
+      var text = document.getElementById("demo-text");
+      var status = document.getElementById("demo-status");
+      var revealBtn = document.getElementById("demo-reveal");
+      var eraseBtn = document.getElementById("demo-erase");
+      var resetBtn = document.getElementById("demo-reset");
+      var original = text.innerHTML;
+      var total = document.querySelectorAll("#demo-text .mark").length;
+
+      function say(msg, cls) {
+        status.textContent = msg;
+        status.className = "demo-status" + (cls ? " " + cls : "");
+      }
+
+      revealBtn.addEventListener("click", function () {
+        card.classList.toggle("revealed");
+        var on = card.classList.contains("revealed");
+        revealBtn.textContent = on ? "Hide marks" : "Reveal marks";
+        if (on) say(total + " invisible codepoints highlighted above.", "warn");
+        else say("");
+      });
+
+      eraseBtn.addEventListener("click", function () {
+        var marks = document.querySelectorAll("#demo-text .mark");
+        if (!marks.length) { say("Already clean — reset to try again.", "ok"); return; }
+        card.classList.remove("revealed");
+        marks.forEach(function (m) { m.remove(); });
+        say("+ " + marks.length + " codepoints erased. The text reads exactly the same — that is the point.", "ok");
+        revealBtn.disabled = true;
+        eraseBtn.disabled = true;
+        resetBtn.hidden = false;
+      });
+
+      resetBtn.addEventListener("click", function () {
+        text.innerHTML = original;
+        card.classList.remove("revealed");
+        revealBtn.disabled = false;
+        eraseBtn.disabled = false;
+        revealBtn.textContent = "Reveal marks";
+        resetBtn.hidden = true;
+        say("");
+      });
+    })();
+  </script>
+</body>
+</html>

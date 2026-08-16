@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - name: Sync environment (uv)
+        run: uv sync --frozen --python 3.12
+
+      - name: Test
+        run: uv run --frozen python -m pytest -q
+
+      - name: Smoke (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          uv run --frozen python skills/remove-ai-marks/scripts/clean_text.py tests/fixtures/sample_watermarked.txt -o "$env:TEMP/wm.cleaned.txt" --stats &&
+          uv run --frozen python skills/remove-ai-marks/scripts/rewrite_text.py tests/fixtures/sample_watermarked.txt --backend print-prompt > $null &&
+          uv run --frozen python skills/remove-ai-marks/scripts/clean_file.py tests/fixtures/sample_ai.md -o "$env:TEMP/sample_ai.cleaned.md" &&
+          uv run --frozen python skills/remove-ai-marks/scripts/clean_file.py tests/fixtures/sample_ai.html -o "$env:TEMP/sample_ai.cleaned.html" &&
+          uv run --frozen python skills/remove-ai-marks/scripts/clean_file.py tests/fixtures/sample_meta.svg -o "$env:TEMP/sample_meta.cleaned.svg"
+
+      - name: Audit dependencies (pip-audit)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          uv run --frozen python -m pip_audit -r requirements.txt \
+            -r skills/remove-ai-marks/scripts/requirements-synthid-scorer.txt

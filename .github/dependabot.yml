@@ -1,0 +1,55 @@
+# Dependabot configuration (https://docs.github.com/code-security/dependabot)
+version: 2
+updates:
+  # GitHub Actions: keeps the SHA pins in .github/workflows/ fresh. All action
+  # references are SHA-pinned, so dependabot is the mechanism that rotates them
+  # when upstream releases new versions.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+
+  # Root dev/test dependencies (pyproject.toml dev group, mirrored in
+  # requirements.txt for pip tooling: pytest, pip-audit).
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+
+  # Optional reverse-SynthID scorer / CtrlRegen backend dependencies.
+  # NOTE: these pins are compatibility-coupled to the upstream checkouts
+  # pinned in setup_synthid.sh / setup_ctrlregen.sh / Dockerfile.synthid.
+  # Before merging a bump, re-verify against the pinned upstream commit —
+  # CI's pip-audit step will flag any security regression, but functional
+  # compatibility must be checked by a human.
+  #
+  # Breaking-major (and 0.x minor, which is breaking for diffusers)
+  # proposals for the CtrlRegen ML stack are ignored: the upstream research
+  # code is built against diffusers 0.27 / transformers 4.37 / accelerate
+  # 0.27 and breaks silently on newer majors. Patch/minor updates that
+  # stay on those lines are still proposed.
+  - package-ecosystem: "pip"
+    directory: "/skills/remove-ai-marks/scripts"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    ignore:
+      - dependency-name: "transformers"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "accelerate"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "diffusers"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+
+  # Docker base image (Dockerfile.synthid): tracks the digest-pinned
+  # python:3.11-slim base. Monthly — digest churn is low-signal weekly.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5

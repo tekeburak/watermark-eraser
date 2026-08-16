@@ -1,0 +1,423 @@
+"""Tests for SVG/HTML/MD/DOCX/ODT container cleaners."""
+
+from __future__ import annotations
+
+import io
+import sys
+import zipfile
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS = ROOT / "skills" / "remove-ai-marks" / "scripts"
+sys.path.insert(0, str(SCRIPTS))
+
+from container_meta import (  # noqa: E402
+    clean_container,
+    clean_docx,
+    clean_html,
+    clean_markdown,
+    clean_odt,
+    clean_svg,
+    inspect_container,
+    inspect_html,
+    inspect_markdown,
+    inspect_svg,
+)
+
+
+def test_markdown_frontmatter():
+    text = """---
+title: Hello
+generator: Claude
+ai_generated: true
+---
+Body\u200b text.
+"""
+    _c2, has_ai, findings, _d = inspect_markdown(text)
+    assert has_ai
+    assert any("generator" in f or "ai" in f.lower() for f in findings)
+    cleaned, actions = clean_markdown(text)
+    assert "generator:" not in cleaned
+    assert "ai_generated:" not in cleaned
+    assert "title: Hello" in cleaned
+    assert any("drop" in a for a in actions)
+
+
+def test_markdown_frontmatter_with_blank_line_does_not_crash():
+    """A blank line inside frontmatter must be skipped, not crash."""
+    text = "---\ntitle: Demo\n\nauthor: you\n---\nBody\n"
+    cleaned, actions = clean_markdown(text)
+    assert "title: Demo" in cleaned
+    assert "author: you" in cleaned
+    assert actions
+
+
+def test_markdown_drops_nested_children_of_dropped_key():
+    """Regression: nested values under a dropped AI key survived the clean."""
+    text = (
+        "---\n"
+        "title: Demo\n"
+        "model:\n"
+        "  name: claude-opus\n"
+        "  version: 4\n"
+        "author: you\n"
+        "---\nBody\n"
+    )
+    cleaned, actions = clean_markdown(text)
+    assert "claude-opus" not in cleaned      # the leak
+    assert "version: 4" not in cleaned
+    assert "title: Demo" in cleaned          # siblings untouched
+    assert "author: you" in cleaned
+    assert any("drop frontmatter key: model" in a for a in actions)
+
+
+def test_markdown_clean_output_is_no_longer_flagged():
+    """Round-trip: re-inspecting a cleaned document reports nothing AI-ish."""
+    text = "---\ntitle: Demo\nmodel:\n  name: claude-opus\ngenerator: Claude\n---\nBody\n"
+    cleaned, _ = clean_markdown(text)
+    _c2, has_ai, findings, _d = inspect_markdown(cleaned)
+    assert not has_ai, findings
+
+
+def test_markdown_preserves_comments_and_non_ai_keys():
+    text = "---\n# editorial notes\ntitle: Demo\ntags:\n  - one\n  - two\n---\nBody\n"
+    cleaned, _ = clean_markdown(text)
+    assert "# editorial notes" in cleaned
+    assert "- one" in cleaned and "- two" in cleaned
+
+
+def test_html_meta_strip():
+    html = """<html><head>
+<meta name="generator" content="ChatGPT">
+<meta name="viewport" content="width=device-width">
+<meta name="description" content="ok">
+</head><body data-ai-model="gpt">Hi</body></html>"""
+    _c2, has_ai, findings, _ = inspect_html(html)
+    assert has_ai
+    cleaned, actions = clean_html(html)
+    assert "ChatGPT" not in cleaned
+    assert "viewport" in cleaned
+    assert "data-ai-model" not in cleaned
+    assert any("drop" in a for a in actions)
+
+
+def test_html_cms_generator_not_ai():
+    html = '<meta name="generator" content="WordPress 6.0">'
+    has_c2pa, has_ai, findings, _ = inspect_html(html)
+    assert not has_c2pa
+    assert not has_ai
+    assert any("cms" in f for f in findings)
+
+
+def test_html_cms_generator_preserved_by_clean():
+    html = '<html><head><meta name="generator" content="WordPress 6.0"><meta name="viewport" content="width=device-width"></head></html>'
+    cleaned, actions = clean_html(html)
+    assert "WordPress" in cleaned
+    assert "viewport" in cleaned
+
+
+def test_html_ai_generator_still_dropped():
+    html = '<meta name="generator" content="Claude">'
+    cleaned, actions = clean_html(html)
+    assert "Claude" not in cleaned
+    assert any("drop" in a for a in actions)
+
+
+def test_pdf_stream_byte_collision_not_ai(tmp_path: Path):
+    from container_meta import inspect_pdf
+
+    pdf = b"%PDF-1.4\n1 0 obj<< /Length 4 >>stream\nAIGC\nendstream\nendobj\n%%EOF\n"
+    src = tmp_path / "collision.pdf"
+    src.write_bytes(pdf)
+    has_c2pa, has_ai, findings, _ = inspect_pdf(src, pdf)
+    assert not has_c2pa
+    assert not has_ai
+
+
+def test_svg_metadata():
+    svg = b"""<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg">
+  <metadata>c2pa contentcredentials Anthropic</metadata>
+  <circle cx="1" cy="1" r="1"/>
+</svg>"""
+    has_c2pa, has_ai, findings, _ = inspect_svg(svg)
+    assert has_c2pa or has_ai
+    cleaned, actions = clean_svg(svg)
+    assert b"<metadata" not in cleaned.lower() or b"c2pa" not in cleaned.lower()
+    assert b"<circle" in cleaned
+    assert any("metadata" in a or "drop" in a for a in actions)
+
+
+def _make_docx_with_app(app_name: str = "Claude AI Writer") -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr(
+            "[Content_Types].xml",
+            """<?xml version="1.0"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+  <Override PartName="/customXml/item1.xml" ContentType="application/xml"/>
+</Types>""",
+        )
+        zf.writestr(
+            "word/document.xml",
+            '<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Hello</w:t></w:r></w:p></w:body></w:document>',
+        )
+        zf.writestr(
+            "docProps/app.xml",
+            f'<?xml version="1.0"?><Properties><Application>{app_name}</Application></Properties>',
+        )
+        zf.writestr(
+            "customXml/item1.xml",
+            '<?xml version="1.0"?><root>c2pa contentcredentials</root>',
+        )
+    return buf.getvalue()
+
+
+def test_docx_strips_app_and_customxml(tmp_path: Path):
+    data = _make_docx_with_app()
+    cleaned, actions = clean_docx(data)
+    assert any("customXml" in a or "Application" in a or "drop" in a for a in actions)
+    with zipfile.ZipFile(io.BytesIO(cleaned)) as zf:
+        names = zf.namelist()
+        assert "word/document.xml" in names
+        assert not any(n.startswith("customXml/") for n in names)
+        app = zf.read("docProps/app.xml").decode()
+        assert "Claude" not in app
+
+
+def _make_docx_with_body_text(body_text: str = "Claude wrote this.") -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr(
+            "[Content_Types].xml",
+            """<?xml version="1.0"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+</Types>""",
+        )
+        zf.writestr(
+            "word/document.xml",
+            '<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>'
+            + body_text
+            + "</w:t></w:r></w:p></w:body></w:document>",
+        )
+        zf.writestr(
+            "docProps/core.xml",
+            '<?xml version="1.0"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties"></cp:coreProperties>',
+        )
+    return buf.getvalue()
+
+
+def test_docx_body_vendor_word_is_not_ai_metadata():
+    from container_meta import inspect_docx
+
+    data = _make_docx_with_body_text()
+    has_c2pa, has_ai, findings, _ = inspect_docx(data)
+    assert not has_c2pa
+    assert not has_ai
+    assert not any("Claude" in f for f in findings)
+
+
+def test_docx_metadata_vendor_word_is_still_flagged():
+    from container_meta import inspect_docx
+
+    data = _make_docx_with_app("Claude AI Writer")
+    has_c2pa, has_ai, findings, _ = inspect_docx(data)
+    assert has_ai
+    assert any("Claude" in f for f in findings)
+
+
+def _make_odt(generator: str = "Anthropic Claude") -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("mimetype", "application/vnd.oasis.opendocument.text")
+        zf.writestr(
+            "meta.xml",
+            f'<?xml version="1.0"?><office:document-meta xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0"><meta:generator>{generator}</meta:generator></office:document-meta>',
+        )
+        zf.writestr(
+            "content.xml",
+            '<?xml version="1.0"?><office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"/>',
+        )
+        zf.writestr(
+            "META-INF/manifest.xml",
+            '<?xml version="1.0"?><manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"/>',
+        )
+    return buf.getvalue()
+
+
+def test_odt_drops_generator(tmp_path: Path):
+    data = _make_odt()
+    cleaned, actions = clean_odt(data)
+    assert any("generator" in a for a in actions)
+    with zipfile.ZipFile(io.BytesIO(cleaned)) as zf:
+        meta = zf.read("meta.xml").decode()
+        assert "Claude" not in meta
+        assert "meta:generator" not in meta or "Anthropic" not in meta
+
+
+# ---------------------------------------------------------------------------
+# Office siblings: PPTX / XLSX reuse the OOXML machinery; ODP/ODS reuse ODF
+# ---------------------------------------------------------------------------
+
+
+def _make_ooxml(kind: str, app_name: str = "Claude AI Writer") -> bytes:
+    """Build a minimal PPTX (ppt/presentation.xml) or XLSX (xl/workbook.xml)."""
+    body_part = {
+        "pptx": ("ppt/presentation.xml", "presentation"),
+        "xlsx": ("xl/workbook.xml", "workbook"),
+    }[kind]
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr(
+            "[Content_Types].xml",
+            '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>',
+        )
+        zf.writestr(body_part[0], f'<?xml version="1.0"?><{body_part[1]}/>')
+        zf.writestr(
+            "docProps/app.xml",
+            f'<?xml version="1.0"?><Properties><Application>{app_name}</Application></Properties>',
+        )
+        zf.writestr(
+            "customXml/item1.xml",
+            '<?xml version="1.0"?><root>c2pa contentcredentials</root>',
+        )
+    return buf.getvalue()
+
+
+@pytest.mark.parametrize("kind", ["pptx", "xlsx"])
+def test_ooxml_siblings_detect_and_clean(tmp_path: Path, kind: str):
+    from container_meta import clean_container, detect_container_format, inspect_container
+
+    data = _make_ooxml(kind)
+    # magic sniff identifies by body part
+    assert detect_container_format(Path(f"x.{kind}"), data) == kind
+
+    report = inspect_container(_write(tmp_path, f"x.{kind}", data))
+    assert report.format == kind
+    assert report.has_ai_metadata
+
+    dest = tmp_path / f"x.cleaned.{kind}"
+    result = clean_container(tmp_path / f"x.{kind}", dest)
+    with zipfile.ZipFile(dest) as zf:
+        names = zf.namelist()
+        # body part survives
+        assert names.count("ppt/presentation.xml" if kind == "pptx" else "xl/workbook.xml") == 1
+        assert not any(n.startswith("customXml/") for n in names)
+        assert "Claude" not in zf.read("docProps/app.xml").decode()
+    assert not result["still_has_c2pa"]
+
+
+def _write(tmp_path: Path, name: str, data: bytes) -> Path:
+    p = tmp_path / name
+    p.write_bytes(data)
+    return p
+
+
+@pytest.mark.parametrize(
+    "kind,mime",
+    [
+        ("odp", "application/vnd.oasis.opendocument.presentation"),
+        ("ods", "application/vnd.oasis.opendocument.spreadsheet"),
+    ],
+)
+def test_odf_siblings_detect_and_clean(tmp_path: Path, kind: str, mime: str):
+    from container_meta import clean_container, detect_container_format, inspect_container
+
+    # same ODF layout as _make_odt, different mimetype
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("mimetype", mime)
+        zf.writestr(
+            "meta.xml",
+            '<?xml version="1.0"?><office:document-meta xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0"><meta:generator>Anthropic Claude</meta:generator></office:document-meta>',
+        )
+        zf.writestr("content.xml", '<?xml version="1.0"?><office:document-content/>')
+    data = buf.getvalue()
+
+    # magic sniff distinguishes the ODF flavor via the mimetype part
+    assert detect_container_format(Path(f"x.{kind}"), data) == kind
+    report = inspect_container(_write(tmp_path, f"x.{kind}", data))
+    assert report.format == kind
+    assert report.has_ai_metadata
+
+    dest = tmp_path / f"x.cleaned.{kind}"
+    result = clean_container(tmp_path / f"x.{kind}", dest)
+    assert not result["still_has_ai_metadata"]
+    with zipfile.ZipFile(dest) as zf:
+        assert "Anthropic" not in zf.read("meta.xml").decode()
+
+
+def test_clean_container_markdown_file(tmp_path: Path):
+    src = tmp_path / "x.md"
+    src.write_text("---\ngenerator: OpenAI\n---\nHi\u200b\n", encoding="utf-8")
+    dest = tmp_path / "x.cleaned.md"
+    result = clean_container(src, dest)
+    assert dest.is_file()
+    body = dest.read_text(encoding="utf-8")
+    assert "generator" not in body
+    assert "\u200b" not in body
+    assert result["format"] == "markdown"
+
+
+def test_inspect_container_svg(tmp_path: Path):
+    src = tmp_path / "a.svg"
+    src.write_bytes(
+        b'<svg xmlns="http://www.w3.org/2000/svg"><metadata>c2pa</metadata></svg>'
+    )
+    report = inspect_container(src)
+    assert report.format == "svg"
+    assert report.has_c2pa or report.has_ai_metadata
+
+
+def test_fixtures_md_html_svg_roundtrip(tmp_path: Path):
+    root = Path(__file__).resolve().parents[1] / "tests" / "fixtures"
+    for name in ("sample_ai.md", "sample_ai.html", "sample_meta.svg"):
+        src = root / name
+        dest = tmp_path / f"{name}.cleaned{src.suffix}"
+        result = clean_container(src, dest)
+        assert dest.is_file()
+        assert result["format"] in ("markdown", "html", "svg")
+        # AI-ish keys/tags should be reduced
+        body = dest.read_bytes().lower()
+        assert b"chatgpt" not in body
+        assert b"generator: claude" not in body
+
+
+def test_pdf_degraded_clean_without_crash(tmp_path: Path):
+    """Minimal PDF with an XMP packet; clean should not raise (may be degraded)."""
+    from container_meta import clean_pdf, inspect_pdf
+
+    xmp = (
+        b"<?xpacket begin='' id='W5M0MpCehiHzreSzNTczkc9d'?>"
+        b"<x:xmpmeta xmlns:x='adobe:ns:meta/'>"
+        b"<rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'>"
+        b"<rdf:Description>"
+        b"<digitalSourceType>trainedAlgorithmicMedia</digitalSourceType>"
+        b"</rdf:Description></rdf:RDF></x:xmpmeta>"
+        b"<?xpacket end='w'?>"
+    )
+    # Minimal-ish PDF skeleton (not renderable; enough for byte-level tools)
+    pdf = (
+        b"%PDF-1.4\n"
+        b"1 0 obj<<>>endobj\n"
+        b"trailer<<>>\n"
+        + xmp
+        + b"\n%%EOF\n"
+    )
+    src = tmp_path / "t.pdf"
+    dest = tmp_path / "t.cleaned.pdf"
+    src.write_bytes(pdf)
+    has_c2pa, has_ai, findings, _ = inspect_pdf(src, pdf)
+    assert has_ai or has_c2pa or findings
+    actions, meta = clean_pdf(src, dest)
+    assert dest.is_file()
+    assert actions
+    assert meta.get("mode") in ("exiftool", "stdlib-xmp", "copy")

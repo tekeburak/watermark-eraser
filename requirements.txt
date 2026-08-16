@@ -1,0 +1,6 @@
+# Test/CI dependencies — exact pins (no drift). The runtime itself is
+# stdlib-only: the core scripts have zero dependencies.
+# Dependabot bumps these; uv users should prefer `uv sync` (pyproject.toml
+# + uv.lock are the source of truth — this file is kept for pip tooling).
+pytest==9.1.1
+pip-audit==2.10.1
