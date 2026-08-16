@@ -3,7 +3,7 @@
 | Target | Method | Script / action | Side effects | Verifiable today? |
 | --- | --- | --- | --- | --- |
 | Invisible Unicode / exotic spaces / bidi / tags | Strip / normalize | `inspect_text.py`, `clean_text.py`, `clean_file.py` | Minimal | Yes (codepoint report) |
-| Statistical text watermark (SynthID-class / Kirchenbauer) | Multi-pass paraphrase / humanize / back-translate / structural | Agent Layer B + optional `rewrite_text.py` | Meaning/style drift | No without vendor key/detector |
+| Statistical text watermark (SynthID-class / Kirchenbauer) | Multi-pass paraphrase / humanize / back-translate / structural | Agent Layer B + optional `rewrite_text.py` | Meaning/style drift | No without vendor key/detector; self-verification with own keys via `score_synthid_text.py` (`--score-synthid-text` before/after) |
 | C2PA on PNG/JPEG | Drop APP11 / text chunks / exiftool | `clean_image.py` | Loses provenance metadata | Yes |
 | Metadata on WebP/TIFF/GIF | Drop EXIF/XMP chunks (WebP, VP8X flags fixed); zero tag values in place (TIFF); drop comment/marked app extensions (GIF) | `clean_image.py` | Loses metadata; image bytes otherwise untouched | Yes (re-inspect) |
 | SVG metadata / XMP | Drop `<metadata>`, xmpmeta | `clean_file.py` | Loses SVG metadata | Yes (re-inspect) |
@@ -21,7 +21,7 @@
 
 1. **Inspect** (`inspect_file.py` or specific inspect_*).
 2. **Deterministic clean** — Layer A text and/or container/image metadata; for images, optionally add pixel removal (`--remove-pixel ctrlregen`) after the metadata strip.
-3. **Always offer Layer B** rewrite for prose (paraphrase → optional strong pass: `humanize` / back-translate / structural).
+3. **Always offer Layer B** rewrite for prose (paraphrase → optional strong pass: `humanize` / back-translate / structural). When the optional SynthID-Text scorer is bootstrapped (`make bootstrap-synthid-text`), offer `rewrite_text.py --score-synthid-text` for before/after watermark scores on the user's own keyed content.
 4. Prefer a **non-origin, open-weight** rewrite model when available (avoid re-stamping).
 5. Layer A again after rewrite.
 6. Report: Layer B is best-effort; residual risk remains.
