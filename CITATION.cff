@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: >-
+  If this toolkit or its reference documentation helped your research or
+  project, please cite it. Thank you!
+title: watermark-eraser
+type: software
+authors:
+  - given-names: Burak
+    family-names: Teke
+    orcid: "https://orcid.org/0000-0000-0000-0000"
+    # Replace the ORCID above with yours, or delete the orcid line.
+repository-code: "https://github.com/tekeburak/watermark-eraser"
+url: "https://tekeburak.github.io/watermark-eraser/"
+abstract: >-
+  Deterministic, privacy-first toolkit that removes AI provenance marks from
+  content you own across three layers: invisible Unicode carriers (Layer A),
+  statistical text watermarks via rewrite (Layer B), and C2PA/EXIF/XMP
+  metadata across 16 file formats (Layer C). Stdlib-only core, hardened by
+  design, with optional SynthID-Text self-verification, pixel-removal and
+  scorer backends. Ships with an annotated watermarking research map,
+  glossary and scheme taxonomy.
+keywords:
+  - watermarking
+  - ai-provenance
+  - c2pa
+  - synthid
+  - exif
+  - xmp
+  - privacy
+  - unicode-security
+  - python
+  - cli
+license: MIT
