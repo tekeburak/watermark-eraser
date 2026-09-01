@@ -2,12 +2,25 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sys
 import tempfile
 from pathlib import Path
 from typing import Any
+
+# Single source of truth for the tool version. tests/test_version.py asserts
+# this stays in sync with pyproject.toml.
+__version__ = "0.1.0"
+
+
+def add_version_flag(parser: argparse.ArgumentParser) -> None:
+    """Register --version on a CLI parser (prints '<prog> <version>')."""
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {__version__}"
+    )
+
 
 # Hard caps on attacker-influenced input sizes. Whole-file in-memory
 # processing means a 1 GiB default is a host-memory DoS; keep defaults low.

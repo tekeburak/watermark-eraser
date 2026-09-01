@@ -123,6 +123,19 @@ Layer B is **best-effort**, and anyone telling you otherwise is selling somethin
 
 Vendor context (August 2026): Claude output has carried an embedded statistical text watermark plus signed C2PA file metadata since **2026-08-02** (EU AI Act Art. 50), and Google's SynthID is deployed across Gemini with detection in Search/Chrome and a cross-provider Cloud API. Detection tooling for Claude marks is not public yet — so for Layer B you can verify the *method* (SynthID-Text scorer on your own keyed watermarks) but not Claude-marked text directly. Details and sources: [`references/vendor-notes.md`](skills/remove-ai-marks/references/vendor-notes.md).
 
+## Reference shelf
+
+This repo doubles as a reading path for AI watermarking — the docs are written to be useful even if you never run the tools:
+
+| Doc | What it gives you |
+| --- | --- |
+| [`references/research.md`](skills/remove-ai-marks/references/research.md) | Annotated literature map: schemes (KGW → SynthID-Text → SemStamp), impossibility results, attacks, classifiers, standards |
+| [`references/scheme-taxonomy.md`](skills/remove-ai-marks/references/scheme-taxonomy.md) | One table: every scheme class × what it marks × what works against it × what's honestly out of reach |
+| [`references/glossary.md`](skills/remove-ai-marks/references/glossary.md) | Precise terminology: g-values, green lists, hard/soft binding, FPR regimes, PUA carriers… |
+| [`references/vendor-notes.md`](skills/remove-ai-marks/references/vendor-notes.md) | Live vendor posture (Claude live since 2026-08-02, Google's detection ecosystem, OpenAI×SynthID) with sources |
+| [`FAQ.md`](FAQ.md) | The questions people actually ask, answered without marketing |
+| [`CITATION.cff`](CITATION.cff) | Cite the project if it helped your research |
+
 ## Roadmap
 
 - [ ] In-browser demo (Pyodide): Layer A + metadata parsing, 100% client-side — your files never leave the tab
@@ -136,7 +149,7 @@ Contributions are genuinely welcome — this project runs on careful parsing and
 The short version:
 
 1. **Fork & branch** — `git checkout -b fix/my-change`
-2. **Run the suite** — `uv sync && uv run python -m pytest` (preferred; uv-lockfile-exact) or `pip install -r requirements.txt` with your usual venv. All 260 tests must pass; they're hermetic, no network
+2. **Run the suite** — `uv sync && uv run python -m pytest` (preferred; uv-lockfile-exact) or `pip install -r requirements.txt` with your usual venv. All 263 tests must pass; they're hermetic, no network
 3. **Add a test** for whatever you fixed or added — the suite is the project's insurance
 4. **Open a PR** against `main` — CI must be green; a code-owner review merges it
 
@@ -150,6 +163,8 @@ MIT — see [LICENSE](LICENSE).
 
 ### Unreleased
 
+- **Reference shelf**: annotated research map (`references/research.md`), scheme taxonomy (`references/scheme-taxonomy.md`), glossary (`references/glossary.md`), root `FAQ.md` and `CITATION.cff` — the repo now doubles as a reading path for AI watermarking
+- **`--version` on every CLI** (12 tools), single-sourced from `common.__version__` with a sync test against `pyproject.toml`; `make help` lists all targets
 - **Optional SynthID-Text scorer** (`score_synthid_text.py`, `rewrite_text.py --score-synthid-text`): hashing-based before/after scoring of Layer B rewrites against watermarks created with your own keys — CPU-only, no model weights, pinned upstream checkout with a minimal dependency set
 - **Vendor reality update (2026-08)**: Claude text watermarking + signed C2PA live since 2026-08-02; SynthID detection in Search/Chrome and a cross-provider Cloud API; OpenAI audio carries SynthID — all documented with sources in `references/vendor-notes.md` and `references/how-claude-marks.md`
 

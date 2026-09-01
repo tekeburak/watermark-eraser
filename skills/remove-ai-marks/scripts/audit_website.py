@@ -30,6 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import net_guard  # noqa: E402
 from audit_lib import aggregate, print_human_report, scan_file  # noqa: E402
+from common import add_version_flag  # noqa: E402
 from common import emit_json, eprint  # noqa: E402
 
 DEFAULT_MAX_BYTES = 4 << 20
@@ -286,6 +287,7 @@ def collect_urls(
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
+    add_version_flag(p)
     p.add_argument("--sitemap", help="Sitemap URL to audit")
     p.add_argument("--base", help="Base URL; discover the sitemap automatically")
     p.add_argument("--max-pages", type=int, default=DEFAULT_MAX_PAGES)

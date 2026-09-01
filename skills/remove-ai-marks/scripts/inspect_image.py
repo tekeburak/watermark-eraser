@@ -9,12 +9,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from common import add_version_flag  # noqa: E402
 from common import classify_finding_confidence, emit_json  # noqa: E402
 from image_meta import inspect_image  # noqa: E402
 
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
+    add_version_flag(p)
     p.add_argument("path", type=Path, help="Image path (PNG or JPEG)")
     p.add_argument("--json", action="store_true")
     p.add_argument(

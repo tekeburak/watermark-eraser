@@ -10,6 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from common import add_version_flag  # noqa: E402
 from common import (  # noqa: E402
     MAX_INPUT_BYTES,
     backup_path,
@@ -27,6 +28,7 @@ from text_unicode import clean_text  # noqa: E402
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
+    add_version_flag(p)
     p.add_argument("path", type=Path)
     p.add_argument("-o", "--output", type=Path)
     p.add_argument("--in-place", action="store_true")

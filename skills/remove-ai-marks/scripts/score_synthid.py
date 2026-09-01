@@ -19,6 +19,8 @@ import argparse
 import json
 import os
 import sys
+
+from common import add_version_flag  # noqa: E402
 from pathlib import Path
 
 
@@ -33,6 +35,7 @@ def resolve_upstream(raw: str | None) -> Path | None:
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
+    add_version_flag(p)
     p.add_argument("path", type=Path, help="Image to score (PNG/JPEG/etc.)")
     p.add_argument(
         "--upstream-dir",

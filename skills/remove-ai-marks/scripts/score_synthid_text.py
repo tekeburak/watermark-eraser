@@ -30,6 +30,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+
+from common import add_version_flag  # noqa: E402
 from pathlib import Path
 
 # Below ~10 scored n-grams the mean is statistically meaningless (the
@@ -135,6 +137,7 @@ def score_text(
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
+    add_version_flag(p)
     p.add_argument("path", nargs="?", default="-", help="Text file to score, or - for stdin")
     p.add_argument(
         "--keys",
