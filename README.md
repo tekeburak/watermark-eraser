@@ -63,11 +63,30 @@ Then just ask your agent: *"strip the AI watermarks from these files"* — or in
 
 If [`c2patool`](https://github.com/contentauth/c2pa-rs/tree/main/cli) or [`exiftool`](https://exiftool.org/) are on your `PATH`, the tools detect and use them automatically (deeper C2PA inspection; reliable PDF stripping). Everything works without them.
 
+### Optional: verify Layer B with SynthID-Text (light, CPU-only)
+
+Layer B is best-effort — but it doesn't have to be *unmeasured*. The optional [google-deepmind/synthid-text](https://github.com/google-deepmind/synthid-text) backend (Apache-2.0, never bundled) scores whether text carries a SynthID-Text watermark for a known key/config. Scoring is a pure hashing computation over tokens — no model weights, no GPU, seconds per document:
+
+```bash
+make bootstrap-synthid-text   # pinned checkout + minimal venv (uv-first)
+
+# Score any text (~0.5 unwatermarked; higher = watermarked with these keys)
+~/.watermark-eraser/synthid-text/.venv/bin/python \
+  skills/remove-ai-marks/scripts/score_synthid_text.py notes.txt
+
+# Measure a full Layer B rewrite: before/after scores in the stats JSON
+~/.watermark-eraser/synthid-text/.venv/bin/python \
+  skills/remove-ai-marks/scripts/rewrite_text.py draft.md \
+    --backend ollama --model llama3.2 --score-synthid-text --json-stats
+```
+
+Honest framing: it scores watermarks created with **your** keys — a self-verification harness for the rewrite method. Google's production Gemini keys are not public, and Claude's watermark has no published detector yet.
+
 ## The three layers
 
 **Layer A — invisible text carriers.** Zero-width spaces, bidi overrides, tag characters, variation selectors, exotic space homoglyphs, private-use codepoints, dense carrier runs. Detected and scrubbed deterministically; every removal is counted. Legitimate load-bearing invisibles (emoji ZWJ sequences, script joiners in Persian/Devanagari, orthographic Arabic marks) are recognized and preserved.
 
-**Layer B — statistical text watermarks.** SynthID-Text- and Kirchenbauer-class marks are encoded in *which* tokens the model picked, so the only real attack is rewording. `rewrite_text.py` drives that rewrite — paraphrase, humanize, back-translate, or structural — against a local model (Ollama or any OpenAI-compatible endpoint, loopback-only by default) or just prints the prompt for your agent to execute. Multi-candidate mode scores rewrites by lexical divergence. Section [The honest part](#the-honest-part) covers what this costs.
+**Layer B — statistical text watermarks.** SynthID-Text- and Kirchenbauer-class marks are encoded in *which* tokens the model picked, so the only real attack is rewording. `rewrite_text.py` drives that rewrite — paraphrase, humanize, back-translate, or structural — against a local model (Ollama or any OpenAI-compatible endpoint, loopback-only by default) or just prints the prompt for your agent to execute. Multi-candidate mode scores rewrites by lexical divergence, and the optional SynthID-Text backend turns "best-effort" into **measured** best-effort: before/after watermark scores on your own keyed content (`--score-synthid-text`). Section [The honest part](#the-honest-part) covers what this costs.
 
 **Layer C — file metadata.** C2PA manifests, EXIF, XMP packets, document properties, customXml parts, generator tags — removed while image pixels and document text stay byte-compatible. The unified cleaners re-inspect their own output and report anything that survived.
 
@@ -102,6 +121,8 @@ Layer A and Layer C removals are **verifiable**: the tool counts what it removed
 
 Layer B is **best-effort**, and anyone telling you otherwise is selling something. A statistical watermark lives in the wording, so removing it means rewording — a *lot* of it, sentence by sentence. Every rewrite trades some of the original's voice and precision for mark resistance. If the plan is "generate with a premium model, then rewrite with a cheap one to strip marks," ask whether generating with the cheap model directly wouldn't have been simpler. Layer B earns its keep when you want the premium model's drafting *and* have a hygiene requirement to satisfy — use a **non-origin** model for the rewrite (origin models may re-stamp), and know that no tool can certify an undetectable result.
 
+Vendor context (August 2026): Claude output has carried an embedded statistical text watermark plus signed C2PA file metadata since **2026-08-02** (EU AI Act Art. 50), and Google's SynthID is deployed across Gemini with detection in Search/Chrome and a cross-provider Cloud API. Detection tooling for Claude marks is not public yet — so for Layer B you can verify the *method* (SynthID-Text scorer on your own keyed watermarks) but not Claude-marked text directly. Details and sources: [`references/vendor-notes.md`](skills/remove-ai-marks/references/vendor-notes.md).
+
 ## Roadmap
 
 - [ ] In-browser demo (Pyodide): Layer A + metadata parsing, 100% client-side — your files never leave the tab
@@ -115,7 +136,7 @@ Contributions are genuinely welcome — this project runs on careful parsing and
 The short version:
 
 1. **Fork & branch** — `git checkout -b fix/my-change`
-2. **Run the suite** — `uv sync && uv run python -m pytest` (preferred; uv-lockfile-exact) or `pip install -r requirements.txt` with your usual venv. All 234 tests must pass; they're hermetic, no network
+2. **Run the suite** — `uv sync && uv run python -m pytest` (preferred; uv-lockfile-exact) or `pip install -r requirements.txt` with your usual venv. All 260 tests must pass; they're hermetic, no network
 3. **Add a test** for whatever you fixed or added — the suite is the project's insurance
 4. **Open a PR** against `main` — CI must be green; a code-owner review merges it
 
@@ -126,6 +147,11 @@ Good first contributions: new format parsers (pattern: magic sniff + inspect + s
 MIT — see [LICENSE](LICENSE).
 
 ## Changelog
+
+### Unreleased
+
+- **Optional SynthID-Text scorer** (`score_synthid_text.py`, `rewrite_text.py --score-synthid-text`): hashing-based before/after scoring of Layer B rewrites against watermarks created with your own keys — CPU-only, no model weights, pinned upstream checkout with a minimal dependency set
+- **Vendor reality update (2026-08)**: Claude text watermarking + signed C2PA live since 2026-08-02; SynthID detection in Search/Chrome and a cross-provider Cloud API; OpenAI audio carries SynthID — all documented with sources in `references/vendor-notes.md` and `references/how-claude-marks.md`
 
 ### v0.1.0
 

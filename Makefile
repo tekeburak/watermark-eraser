@@ -1,4 +1,5 @@
 .PHONY: test smoke smoke-synthid bootstrap-synthid docker-synthid-build docker-synthid-help \
+	smoke-synthid-text bootstrap-synthid-text \
 	smoke-ctrlregen bootstrap-ctrlregen docker-ctrlregen-build docker-ctrlregen-help install-skill sync clean
 
 SCRIPTS := skills/remove-ai-marks/scripts
@@ -30,6 +31,16 @@ smoke-synthid:
 
 bootstrap-synthid:
 	./skills/remove-ai-marks/scripts/setup_synthid.sh
+
+smoke-synthid-text:
+	@if [ ! -x "$(HOME)/.watermark-eraser/synthid-text/.venv/bin/python" ]; then \
+	  echo "smoke-synthid-text skipped (run: make bootstrap-synthid-text)"; \
+	else \
+	  $(HOME)/.watermark-eraser/synthid-text/.venv/bin/python $(SCRIPTS)/score_synthid_text.py --help >/dev/null && echo "score_synthid_text adapter present"; \
+	fi
+
+bootstrap-synthid-text:
+	./skills/remove-ai-marks/scripts/setup_synthid_text.sh
 
 docker-synthid-build:
 	docker build -f Dockerfile.synthid -t watermark-eraser-synthid-scorer .

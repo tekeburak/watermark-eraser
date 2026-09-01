@@ -32,6 +32,7 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -47,6 +48,33 @@ from text_unicode import clean_text  # noqa: E402
 MAX_RESPONSE_BYTES = int(
     os.environ.get("WATERMARKS_REWRITE_MAX_RESPONSE_BYTES", str(64 << 20))
 )
+
+
+def run_synthid_text_scorer(text: str) -> dict | None:
+    """Score text with the optional SynthID-Text scorer (subprocess, stdin).
+
+    Returns None when the scorer is not installed (exit 3), so the default
+    "no score" behavior stays silent — same contract as the image scorer.
+    """
+    script = Path(__file__).resolve().parent / "score_synthid_text.py"
+    try:
+        r = subprocess.run(
+            [sys.executable, str(script), "-", "--json"],
+            input=text,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+    except Exception as e:
+        return {"available": False, "error": str(e)}
+    if r.returncode == 3:
+        return None
+    if r.returncode != 0:
+        return {"available": False, "error": (r.stderr or "").strip()[:2000]}
+    try:
+        return json.loads(r.stdout or "{}")
+    except json.JSONDecodeError as e:
+        return {"available": False, "error": f"bad scorer JSON: {e}"}
 
 PROMPTS = {
     "paraphrase": (
@@ -295,6 +323,7 @@ def rewrite(
     temperature: float,
     candidates: int,
     allow_remote: bool = False,
+    score_synthid_text: bool = False,
 ) -> tuple[str, dict]:
     prompt = build_prompt(strength, text, lang=lang, original_lang=original_lang)
     info: dict = {
@@ -307,10 +336,19 @@ def rewrite(
         "input_chars": len(text),
     }
 
+    # Self-verification: score the input before any rewriting, so the
+    # before/after delta is measured on identical keys/config.
+    if score_synthid_text:
+        before = run_synthid_text_scorer(text)
+        if before is not None:
+            info["synthid_text_before"] = before
+
     if backend == "print-prompt":
         info["mode"] = "print-prompt"
         if candidates > 1:
             eprint("note: --candidates ignored in print-prompt mode")
+        if score_synthid_text and "synthid_text_before" not in info:
+            eprint("note: SynthID-Text scorer not available (see setup_synthid_text.sh)")
         return prompt, info
 
     if not model:
@@ -357,6 +395,13 @@ def rewrite(
     if layer_a_after:
         out, stats = clean_text(out)
         info["layer_a_after"] = stats
+
+    if score_synthid_text:
+        after = run_synthid_text_scorer(out)
+        if after is not None:
+            info["synthid_text_after"] = after
+        elif "synthid_text_before" in info:
+            eprint("note: SynthID-Text scorer became unavailable before scoring the output")
 
     info["output_chars"] = len(out)
     info["mode"] = "rewritten"
@@ -417,6 +462,14 @@ def main() -> int:
     )
     p.add_argument("--json-stats", action="store_true", help="Stats JSON on stderr")
     p.add_argument(
+        "--score-synthid-text",
+        action="store_true",
+        default=None,
+        help="Score input and output with the optional SynthID-Text scorer "
+        "(before/after self-verification; WATERMARKS_SCORE_SYNTHID_TEXT=1 "
+        "has the same effect)",
+    )
+    p.add_argument(
         "--force-text",
         action="store_true",
         help="Rewrite even when the input looks like a binary container",
@@ -428,6 +481,11 @@ def main() -> int:
         args.allow_remote
         if args.allow_remote is not None
         else _flag_env("WATERMARKS_REWRITE_ALLOW_REMOTE")
+    )
+    score_synthid = (
+        args.score_synthid_text
+        if args.score_synthid_text is not None
+        else _flag_env("WATERMARKS_SCORE_SYNTHID_TEXT")
     )
     try:
         result, info = rewrite(
@@ -444,6 +502,7 @@ def main() -> int:
             temperature=args.temperature,
             candidates=args.candidates,
             allow_remote=allow_remote,
+            score_synthid_text=score_synthid,
         )
     except (urllib.error.URLError, TimeoutError, RuntimeError) as e:
         eprint(f"rewrite failed: {e}")
