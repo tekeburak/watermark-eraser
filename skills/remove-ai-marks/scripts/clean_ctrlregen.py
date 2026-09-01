@@ -24,6 +24,7 @@ from pathlib import Path
 SCRIPTS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS_DIR))
 
+from common import add_version_flag  # noqa: E402
 from common import cleaned_path, safe_write_bytes  # noqa: E402
 
 # Backend default guidance scale (CtrlRegenEngine.run() default). Kept
@@ -75,6 +76,7 @@ def _progress(message: str) -> None:
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
+    add_version_flag(p)
     p.add_argument("path", type=Path, help="Input image (PNG/JPEG/etc.)")
     p.add_argument("-o", "--output", type=Path, help="Output path (default: *.ctrlregen.*)")
     p.add_argument(

@@ -42,6 +42,7 @@ from urllib.parse import urlparse
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import net_guard  # noqa: E402
+from common import add_version_flag  # noqa: E402
 from common import cleaned_path, eprint, read_text_input, write_text_output  # noqa: E402
 from text_unicode import clean_text  # noqa: E402
 
@@ -414,6 +415,7 @@ def rewrite(
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
+    add_version_flag(p)
     p.add_argument("path", nargs="?", default="-", help="Input text file, or - for stdin")
     p.add_argument("-o", "--output", help="Output path (default: stdout or *.rewritten.*)")
     p.add_argument(

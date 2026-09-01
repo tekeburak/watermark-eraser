@@ -15,6 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from audit_lib import aggregate, print_human_report, scan_file  # noqa: E402
+from common import add_version_flag  # noqa: E402
 from common import MAX_INPUT_BYTES, emit_json, eprint  # noqa: E402
 
 DEFAULT_SKIP_DIRS = {
@@ -49,6 +50,7 @@ def walk_files(root: Path, skip_dirs: set[str]):
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
+    add_version_flag(p)
     p.add_argument("path", type=Path, help="Directory to audit recursively")
     p.add_argument("--json", action="store_true", help="Emit a JSON report")
     p.add_argument(

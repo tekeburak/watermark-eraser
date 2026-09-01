@@ -9,6 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from common import add_version_flag  # noqa: E402
 from common import (  # noqa: E402
     MAX_INPUT_BYTES,
     ROUTER_ADVICE,
@@ -25,6 +26,7 @@ from text_unicode import human_report, inspect_text  # noqa: E402
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
+    add_version_flag(p)
     p.add_argument("path", type=Path, help="File to inspect")
     p.add_argument("--json", action="store_true")
     p.add_argument("--aggressive", action="store_true", help="Text: flag confusables")
