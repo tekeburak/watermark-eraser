@@ -12,6 +12,6 @@
 # macOS wheels are CPU by default. Scoring is pure hashing — no GPU needed.
 torch==2.13.0
 transformers==5.15.0
-jax==0.11.0
+jax==0.11.1
 numpy==2.5.2
 immutabledict==4.3.1
