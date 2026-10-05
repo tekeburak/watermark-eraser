@@ -10,7 +10,7 @@
 # torch: CPU wheels only. On Linux install from
 # https://download.pytorch.org/whl/cpu (handled by setup_synthid_text.sh);
 # macOS wheels are CPU by default. Scoring is pure hashing — no GPU needed.
-torch==2.13.0
+torch==2.14.1
 transformers==5.15.0
 jax==0.11.0
 numpy==2.5.2
