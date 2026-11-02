@@ -2,5 +2,5 @@
 # stdlib-only: the core scripts have zero dependencies.
 # Dependabot bumps these; uv users should prefer `uv sync` (pyproject.toml
 # + uv.lock are the source of truth — this file is kept for pip tooling).
-pytest==9.1.1
+pytest==9.2.0
 pip-audit==2.10.1
